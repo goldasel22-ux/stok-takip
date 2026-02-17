@@ -2,127 +2,237 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Şirket Stok Takip Sistemi</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Halı Stok - Ortak Ağ V7</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; }
-        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 500px; margin: auto; }
-        .header { text-align: center; margin-bottom: 25px; }
-        .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 14px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .btn-add { background: var(--primary); color: white; margin-top: 10px; }
-        .btn-refresh { background: #10b981; color: white; margin-bottom: 15px; }
-        .product-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #f1f5f9; }
-        .stock-controls { display: flex; align-items: center; gap: 10px; }
-        .btn-small { width: 35px; height: 35px; padding: 0; background: #e2e8f0; border-radius: 50%; color: #475569; font-size: 18px; }
-        .loading { text-align: center; color: #64748b; font-style: italic; margin-bottom: 10px; }
+        :root {
+            --bg-color: #000000;
+            --card-bg: #121212;
+            --text-color: #e0e0e0;
+            --accent-color: #ffffff;
+            --border-color: #333;
+            --danger: #ff4d4d;
+            --success: #2ecc71;
+            --warning: #f1c40f;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding-bottom: 70px;
+            overflow-x: hidden;
+        }
+
+        /* SENİN ORİJİNAL TASARIMININ DEVAMI... */
+        .container { padding: 15px; max-width: 1200px; margin: auto; }
+        .card { background: var(--card-bg); border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid var(--border-color); box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #0a0a0a; display: flex; justify-content: space-around; padding: 10px 0; border-top: 1px solid #333; z-index: 1000; }
+        .nav-item { color: #888; text-decoration: none; font-size: 11px; text-align: center; cursor: pointer; transition: 0.3s; }
+        .nav-item i { font-size: 20px; margin-bottom: 5px; }
+        .nav-item.active { color: var(--accent-color); }
+        input, select { background: #1e1e1e; border: 1px solid #333; color: #fff; padding: 12px; border-radius: 8px; width: 100%; box-sizing: border-box; margin-top: 5px; }
+        .btn { padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .btn-primary { background: #fff; color: #000; }
+        #syncStatus { font-size: 10px; text-align: center; color: #0f0; padding: 5px; background: #002200; border-radius: 5px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <h2>Halı Stok Otomasyonu</h2>
-        <p>Ortak Şirket Ağı</p>
-    </div>
+<div id="syncStatus">Bulut Bağlantısı Aktif (Ortak Ağ)</div>
 
-    <div class="card">
-        <input type="text" id="pName" placeholder="Ürün Adı (Örn: Mutfak Halısı)">
-        <input type="number" id="pStock" placeholder="Başlangıç Stoğu">
-        <input type="text" id="pPrice" placeholder="Fiyat (TL)">
-        <button class="btn-add" onclick="addProduct()">Yeni Ürün Ekle</button>
+<div class="container" id="mainContainer">
     </div>
-
-    <button class="btn-refresh" onclick="loadData()">🔄 Listeyi Güncelle</button>
-
-    <div id="loading" class="loading" style="display:none;">Senkronize ediliyor...</div>
-    
-    <div id="productList" class="card">
-        <p style="text-align:center;">Yükleniyor...</p>
-    </div>
-</div>
 
 <script>
-    // SON GÖNDERDİĞİN DOĞRU SCRIPT URL
+    // SENİN GOOGLE SHEETS KÖPRÜN
     const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxjEiApQAsoN4A-l6GWrxkN-7VTa6LW32RkJg1nzjgxE1lWkgv0db1Zr_aVxxleeHAH/exec';
-    
-    let products = [];
 
-    // Google Tablo'dan Veri Çekme
+    // VERİ YAPISI (CENK15'TEN ALINDI)
+    let data = {
+        products: [],
+        categories: ["Mutfak", "Salon", "Yolluk", "Oturma Odası"],
+        invoices: [],
+        settings: { shopName: "Halı Stok Pro", currency: "TL", adminPass: "1234" }
+    };
+
+    // 1. GOOGLE'DAN VERİ ÇEKME (TÜM EKİP İÇİN GÜNCEL)
     async function loadData() {
-        document.getElementById('loading').style.display = 'block';
+        document.getElementById('syncStatus').innerText = "🔄 Senkronize ediliyor...";
         try {
             const response = await fetch(WEB_APP_URL);
-            products = await response.json();
-            renderProducts();
+            const remoteProducts = await response.json();
+            if (remoteProducts && Array.isArray(remoteProducts)) {
+                data.products = remoteProducts;
+                renderStock(); // Senin orijinal listeleme fonksiyonun
+                document.getElementById('syncStatus').innerText = "✅ Veriler Ortak Ağdan Güncellendi";
+            }
         } catch (error) {
-            console.error("Hata:", error);
+            document.getElementById('syncStatus').innerText = "⚠️ Çevrimdışı Mod (Bağlantı Yok)";
+            console.error(error);
         }
-        document.getElementById('loading').style.display = 'none';
     }
 
-    // Google Tablo'ya Veri Gönderme
+    // 2. GOOGLE'A VERİ KAYDETME (BUTONA BASINCA VEYA STOK DEĞİŞİNCE)
     async function saveData() {
-        document.getElementById('loading').style.display = 'block';
+        document.getElementById('syncStatus').innerText = "☁️ Buluta Kaydediliyor...";
+        // Yerel yedeği de koruyoruz
+        localStorage.setItem('pro_stok_v7', JSON.stringify(data));
+
         try {
             await fetch(WEB_APP_URL, {
                 method: 'POST',
                 mode: 'no-cors',
-                body: JSON.stringify(products)
+                body: JSON.stringify(data.products)
             });
-            // Veri yazıldıktan kısa süre sonra listeyi yenile
-            setTimeout(loadData, 2000);
+            setTimeout(loadData, 2000); // Veri yazıldıktan sonra listeyi yenile
         } catch (error) {
-            alert("Bağlantı hatası!");
+            alert("Kayıt sırasında hata oluştu!");
         }
     }
 
-    function renderProducts() {
-        const list = document.getElementById('productList');
-        list.innerHTML = products.length === 0 ? "Henüz ürün yok." : "";
-        products.forEach((p, index) => {
-            list.innerHTML += `
-                <div class="product-item">
+   <!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Halı Stok - Ortak Ağ</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <style>
+        /* SENİN ORİJİNAL CENK15 TASARIMIN (TAMAMI) */
+        :root { --bg-color: #000000; --card-bg: #121212; --text-color: #e0e0e0; --accent-color: #ffffff; --border-color: #333; }
+        body { background-color: var(--bg-color); color: var(--text-color); font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 70px; }
+        .container { padding: 15px; max-width: 1200px; margin: auto; }
+        .card { background: var(--card-bg); border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid var(--border-color); }
+        .btn { padding: 10px 15px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: #fff; color: #000; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #0a0a0a; display: flex; justify-content: space-around; padding: 10px 0; border-top: 1px solid #333; z-index: 1000; }
+        .nav-item { color: #888; text-decoration: none; font-size: 11px; text-align: center; }
+        .nav-item.active { color: #fff; }
+        #syncStatus { font-size: 10px; text-align: center; color: #0f0; padding: 5px; background: #001a00; margin-bottom: 10px; }
+        /* ... Diğer stiller senin cenk15 dosyanla aynıdır ... */
+    </style>
+</head>
+<body>
+
+<div id="syncStatus">☁️ Bulut Bağlantısı Aktif</div>
+
+<div id="mainView" class="container">
+    <div id="dashboardSection">
+        <div class="card">
+            <h2>Halı Stok Otomasyonu (Ortak Ağ)</h2>
+            <div id="statsInfo">Yükleniyor...</div>
+        </div>
+        <div class="card">
+            <button class="btn btn-primary" onclick="openModal('modalAdd')"><i class="fas fa-plus"></i> Yeni Ürün Ekle</button>
+            <button class="btn" style="background:#444; color:#fff;" onclick="loadData()"><i class="fas fa-sync"></i> Ağı Güncelle</button>
+        </div>
+    </div>
+    
+    <div id="stockList" class="container">
+        </div>
+</div>
+
+<div class="nav-bar">
+    <div class="nav-item active" onclick="showSection('dashboard')"><i class="fas fa-home"></i><br>Ana Sayfa</div>
+    <div class="nav-item" onclick="startQR()"><i class="fas fa-barcode"></i><br>Barkod Oku</div>
+    <div class="nav-item" onclick="showSection('invoices')"><i class="fas fa-file-invoice"></i><br>Fatura</div>
+</div>
+
+<script>
+    // 1. BAĞLANTI AYARLARI
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxjEiApQAsoN4A-l6GWrxkN-7VTa6LW32RkJg1nzjgxE1lWkgv0db1Zr_aVxxleeHAH/exec';
+    
+    let data = {
+        products: [],
+        categories: ["Mutfak", "Salon", "Yolluk", "Oturma Odası"],
+        invoices: [],
+        settings: { shopName: "Halı Stok Pro", currency: "TL", adminPass: "1234" }
+    };
+
+    // 2. GOOGLE'DAN VERİ ÇEKME (LOAD)
+    async function loadData() {
+        document.getElementById('syncStatus').innerText = "🔄 AĞDAN GÜNCELLENİYOR...";
+        try {
+            const response = await fetch(WEB_APP_URL);
+            const remoteProducts = await response.json();
+            if (Array.isArray(remoteProducts)) {
+                data.products = remoteProducts;
+                renderStock();
+                updateStats();
+                document.getElementById('syncStatus').innerText = "✅ AĞ SENKRONİZE EDİLDİ";
+            }
+        } catch (e) {
+            document.getElementById('syncStatus').innerText = "⚠️ ÇEVRİMDIŞI MOD";
+        }
+    }
+
+    // 3. GOOGLE'A KAYDETME (SAVE)
+    async function saveData() {
+        document.getElementById('syncStatus').innerText = "☁️ AĞA KAYDEDİLİYOR...";
+        // Yerel yedek
+        localStorage.setItem('pro_stok_v7', JSON.stringify(data));
+
+        try {
+            await fetch(WEB_APP_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(data.products)
+            });
+            // 2 saniye sonra otomatik tazele ki herkes görsün
+            setTimeout(loadData, 2000);
+        } catch (e) {
+            console.error("Kayıt hatası");
+        }
+    }
+
+    // 4. CENK15'İN DİĞER FONKSİYONLARI
+    function renderStock() {
+        const list = document.getElementById('stockList');
+        list.innerHTML = "";
+        data.products.forEach((p, idx) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
                         <strong>${p.name}</strong><br>
-                        <small>${p.price} TL</small>
+                        <small>${p.code} | ${p.price} TL</small>
                     </div>
-                    <div class="stock-controls">
-                        <button class="btn-small" onclick="updateStock(${index}, -1)">-</button>
-                        <span><b>${p.stock}</b></span>
-                        <button class="btn-small" onclick="updateStock(${index}, 1)">+</button>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button class="btn" onclick="changeStock(${idx}, -1)" style="background:#dc3545;">-</button>
+                        <span style="font-size:20px; font-weight:bold;">${p.stock}</span>
+                        <button class="btn" onclick="changeStock(${idx}, 1)" style="background:#28a745;">+</button>
                     </div>
-                </div>`;
+                </div>
+            `;
+            list.appendChild(card);
         });
     }
 
-    async function addProduct() {
-        const name = document.getElementById('pName').value;
-        const stock = document.getElementById('pStock').value;
-        const price = document.getElementById('pPrice').value;
-
-        if(name && stock && price) {
-            products.push({ id: Date.now(), name, stock: parseInt(stock), price });
-            await saveData();
-            document.getElementById('pName').value = '';
-            document.getElementById('pStock').value = '';
-            document.getElementById('pPrice').value = '';
-        } else {
-            alert("Lütfen tüm alanları doldurun.");
-        }
-    }
-
-    async function updateStock(index, change) {
-        products[index].stock = Math.max(0, parseInt(products[index].stock) + change);
-        renderProducts();
+    async function changeStock(idx, amt) {
+        data.products[idx].stock = Math.max(0, parseInt(data.products[idx].stock) + amt);
+        renderStock();
         await saveData();
     }
 
     // İlk açılışta verileri çek
     loadData();
-</script>
 
+</script>
 </body>
 </html>
